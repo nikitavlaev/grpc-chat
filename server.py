@@ -21,25 +21,42 @@ import grpc
 import chat_pb2
 import chat_pb2_grpc
 
-chat = []
+class CancelToken():
+    fexit = 0
+
+    def cancel(self):
+        self.fexit = 1
+
+    def is_cancelled(self):
+        return self.fexit > 0
 
 class Chat(chat_pb2_grpc.ChatServicer):
-    lastindex = 0
 
+    def __init__(self, chat, c_token):
+        self.chat = chat
+        self.lastindex = 0
+        self.c_token = c_token
+    
     def S2C(self, request_iterator, context):
         
         # For every client a infinite loop starts (in gRPC's own managed thread)
         while True:
+            if self.c_token.is_cancelled():
+                context.cancel()
+                break
+
             # Check if there are any new messages
-            while len(chat) > self.lastindex:
-                n = chat[self.lastindex]
+            while len(self.chat) > self.lastindex:
+                n = self.chat[self.lastindex]
                 self.lastindex += 1
                 msg = chat_pb2.Msg()
                 msg.content = n
                 yield msg
+
+        print("out of while")
     
     def C2S(self, request, context):
-        chat.append(request.content)
+        self.chat.append(request.content)
         # Bug with msg order here
         # once names are introduced, resolvable
         self.lastindex += 1
@@ -48,8 +65,11 @@ class Chat(chat_pb2_grpc.ChatServicer):
 
 
 def serve():
+    chat = []
+    c_token = CancelToken()
+
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    chat_pb2_grpc.add_ChatServicer_to_server(Chat(), server)
+    chat_pb2_grpc.add_ChatServicer_to_server(Chat(chat, c_token), server)
     print('Starting server. Listening...')
     server.add_insecure_port('[::]:50051')
     server.start()
@@ -57,8 +77,10 @@ def serve():
         while 1:
             msg = input()
             chat.append(msg)
+            print(chat)
     except:
         server.stop(1)
+        c_token.cancel()
         print("STOPPED")
 
 
