@@ -60,7 +60,7 @@ class Client:
                 line = f"[{msg.name}] at [{msg.timestamp.ToDatetime()}]: {msg.content}"
                 print(line)  # debugging statement
                 self.chat.append(line + '\n')  # add the message to the UI
-        except:
+        except: # TODO catch certain exception, not all of them
             print(f"Server disconnected. Press ENTER to exit (might take couple of sec)")
 
     @staticmethod
