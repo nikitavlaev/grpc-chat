@@ -40,7 +40,7 @@ class Chat(chat_pb2_grpc.ChatServicer):
         self.c_token = c_token
         self.name = name
     
-    def S2C(self, request_iterator, context):
+    def S2C(self, request, context):
         
         # For every client a infinite loop starts (in gRPC's own managed thread)
         while True:
@@ -50,21 +50,16 @@ class Chat(chat_pb2_grpc.ChatServicer):
 
             # Check if there are any new messages
             while len(self.chat) > self.lastindex:
-                n = self.chat[self.lastindex]
+                msg = self.chat[self.lastindex]
                 self.lastindex += 1
-                msg = chat_pb2.Msg()
-                msg.name = self.name
-                msg.content = n
-                msg.timestamp.GetCurrentTime()
-                yield msg
+
+                if msg.name != request.name:
+                    yield msg
 
         print("out of while")
     
     def C2S(self, request, context):
-        self.chat.append(request.content)
-        # Bug with msg order here
-        # once names are introduced, resolvable
-        self.lastindex += 1
+        self.chat.append(request)
         line = f"[{request.name}] at [{request.timestamp.ToDatetime()}]: {request.content}"
         print(line)
         return chat_pb2.Status(code=0)
@@ -89,7 +84,11 @@ class Server:
         server.start()
         try:
             while 1:
-                msg = input()
+                text = input()
+                msg = chat_pb2.Msg()
+                msg.name = name
+                msg.content = text
+                msg.timestamp.GetCurrentTime()
                 chat.append(msg)
                 # print(chat)
         except:

@@ -29,11 +29,13 @@ message Status {
   int32 code = 1;
 }
 
-message Empty {}
+message Meta {
+  string name = 1;
+}
 
 // The greeting service definition.
 service Chat {
   // Sends a greeting
-  rpc S2C(Empty) returns (stream Msg) {}
+  rpc S2C(Meta) returns (stream Msg) {}
   rpc C2S(Msg) returns (Status) {}
 }

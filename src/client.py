@@ -54,7 +54,9 @@ class Client:
         when waiting for new messages
         """
         try:
-            for msg in self.conn.S2C(chat_pb2.Empty()):  # this line will wait for new messages from the server!
+            meta = chat_pb2.Meta()
+            meta.name = self.name
+            for msg in self.conn.S2C(meta):  # this line will wait for new messages from the server!
                 line = f"[{msg.name}] at [{msg.timestamp.ToDatetime()}]: {msg.content}"
                 print(line)  # debugging statement
                 self.chat.append(line + '\n')  # add the message to the UI
