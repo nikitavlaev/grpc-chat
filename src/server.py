@@ -18,6 +18,7 @@ import logging
 import socket
 
 import grpc
+from google.protobuf.timestamp_pb2 import Timestamp
 
 import chat_pb2
 import chat_pb2_grpc
@@ -52,7 +53,9 @@ class Chat(chat_pb2_grpc.ChatServicer):
                 n = self.chat[self.lastindex]
                 self.lastindex += 1
                 msg = chat_pb2.Msg()
+                msg.name = self.name
                 msg.content = n
+                msg.timestamp.GetCurrentTime()
                 yield msg
 
         print("out of while")
@@ -62,7 +65,8 @@ class Chat(chat_pb2_grpc.ChatServicer):
         # Bug with msg order here
         # once names are introduced, resolvable
         self.lastindex += 1
-        print("[{}] {}".format("OTHER:", request.content))
+        line = f"[{request.name}] at [{request.timestamp.ToDatetime()}]: {request.content}"
+        print(line)
         return chat_pb2.Status(code=0)
 
 class Server:

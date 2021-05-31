@@ -18,6 +18,7 @@ import logging
 import threading
 
 import grpc
+from google.protobuf.timestamp_pb2 import Timestamp
 
 import chat_pb2
 import chat_pb2_grpc
@@ -42,7 +43,9 @@ class Client:
                 break
             self.chat.append(text)
             msg = chat_pb2.Msg()
+            msg.name = name
             msg.content = text
+            msg.timestamp.GetCurrentTime()
             self.conn.C2S(msg)
 
     def __listen_for_messages(self):
@@ -51,9 +54,10 @@ class Client:
         when waiting for new messages
         """
         try:
-            for note in self.conn.S2C(chat_pb2.Empty()):  # this line will wait for new messages from the server!
-                print("{} {}".format("OTHER:", note.content))  # debugging statement
-                self.chat.append("[{}] {}\n".format("OTHER:", note.content))  # add the message to the UI
+            for msg in self.conn.S2C(chat_pb2.Empty()):  # this line will wait for new messages from the server!
+                line = f"[{msg.name}] at [{msg.timestamp.ToDatetime()}]: {msg.content}"
+                print(line)  # debugging statement
+                self.chat.append(line + '\n')  # add the message to the UI
         except:
             print(f"Server disconnected. Press ENTER to exit (might take couple of sec)")
 
