@@ -16,14 +16,15 @@ syntax = "proto3";
 
 package chat;
 
-
+import "google/protobuf/timestamp.proto";
 
 // The request message containing the user's name.
 message Msg {
-  string content = 1;
+  string name = 1;
+  string content = 2;
+  google.protobuf.Timestamp time = 3;
 }
 
-// The response message containing the greetings
 message Status {
   int32 code = 1;
 }
