@@ -22,15 +22,15 @@ import grpc
 import chat_pb2
 import chat_pb2_grpc
 
-address = 'localhost'
-port = 50051
 
 class Client:
     chat = []
 
-    def __init__(self):
+    def __init__(self, name, ip, port):
+        self.name = name
+
         # create a gRPC channel + stub
-        channel = grpc.insecure_channel(address + ':' + str(port))
+        channel = grpc.insecure_channel(ip + ':' + str(port))
         self.conn = chat_pb2_grpc.ChatStub(channel)
         # create new listening thread for when new message streams come in
         threading.Thread(target=self.__listen_for_messages, daemon=True).start()
@@ -38,6 +38,8 @@ class Client:
         # main loop
         while 1:
             text = input()
+            if not Client.grpc_server_on(channel):
+                break
             self.chat.append(text)
             msg = chat_pb2.Msg()
             msg.content = text
@@ -48,10 +50,21 @@ class Client:
         This method will be ran in a separate thread as the main/ui thread, because the for-in call is blocking
         when waiting for new messages
         """
-        for note in self.conn.S2C(chat_pb2.Empty()):  # this line will wait for new messages from the server!
-            print("{} {}".format("OTHER:", note.content))  # debugging statement
-            self.chat.append("[{}] {}\n".format("OTHER:", note.content))  # add the message to the UI
+        try:
+            for note in self.conn.S2C(chat_pb2.Empty()):  # this line will wait for new messages from the server!
+                print("{} {}".format("OTHER:", note.content))  # debugging statement
+                self.chat.append("[{}] {}\n".format("OTHER:", note.content))  # add the message to the UI
+        except:
+            print(f"Server disconnected. Press ENTER to exit (might take couple of sec)")
 
+    @staticmethod
+    def grpc_server_on(channel) -> bool:
+        TIMEOUT_SEC = 5
+        try:
+            grpc.channel_ready_future(channel).result(timeout=TIMEOUT_SEC)
+            return True
+        except grpc.FutureTimeoutError:
+            return False
 
 if __name__ == '__main__':
     logging.basicConfig()

@@ -15,6 +15,7 @@
 
 from concurrent import futures
 import logging
+import socket
 
 import grpc
 
@@ -32,10 +33,11 @@ class CancelToken():
 
 class Chat(chat_pb2_grpc.ChatServicer):
 
-    def __init__(self, chat, c_token):
+    def __init__(self, chat, name, c_token):
         self.chat = chat
         self.lastindex = 0
         self.c_token = c_token
+        self.name = name
     
     def S2C(self, request_iterator, context):
         
@@ -63,27 +65,35 @@ class Chat(chat_pb2_grpc.ChatServicer):
         print("[{}] {}".format("OTHER:", request.content))
         return chat_pb2.Status(code=0)
 
+class Server:
+    PORT = 50051
 
-def serve():
-    chat = []
-    c_token = CancelToken()
+    def __init__(self, name):
+        chat = []
+        c_token = CancelToken()
 
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    chat_pb2_grpc.add_ChatServicer_to_server(Chat(chat, c_token), server)
-    print('Starting server. Listening...')
-    server.add_insecure_port('[::]:50051')
-    server.start()
-    try:
-        while 1:
-            msg = input()
-            chat.append(msg)
-            print(chat)
-    except:
-        server.stop(1)
-        c_token.cancel()
-        print("STOPPED")
+        server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+        chat_pb2_grpc.add_ChatServicer_to_server(Chat(chat, name, c_token), server)
+        
+        hostname = socket.gethostname()
+        ip_address = socket.gethostbyname(hostname)
+        print(f"Hostname: {hostname}")
+        print(f"IP Address: {ip_address}")
+        server.add_insecure_port(f'{ip_address}:{Server.PORT}')
+        
+        print('Starting server. Listening...')
+        server.start()
+        try:
+            while 1:
+                msg = input()
+                chat.append(msg)
+                # print(chat)
+        except:
+            server.stop(1)
+            c_token.cancel()
+            print("STOPPED")
 
 
 if __name__ == '__main__':
     logging.basicConfig()
-    serve()
+    Server.serve()
