@@ -7,7 +7,7 @@ from tkinter import Tk, Toplevel, Label, CENTER, Entry, Text, Button, Scrollbar,
 #
 #
 #  everything from chat.py file
-from server import *
+from server_old import *
 
 PORT = 5000
 SERVER = "127.0.0.1"
@@ -57,7 +57,7 @@ class GUI:
                              rely=0.2)
 
         # create a entry box for
-        # tyoing the message
+        # typing the message
         self.entryName = Entry(self.login,
                                font="Helvetica 14")
 
