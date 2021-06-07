@@ -2,12 +2,12 @@ from tkinter import DISABLED, END, messagebox
 import threading
 
 import grpc
-from google.protobuf.timestamp_pb2 import Timestamp
 
 import chat_pb2
 import chat_pb2_grpc
 
 from src.chat_main import ChatMain, Peer
+
 
 class Client(Peer):
     def __init__(self, name, ip, port):
@@ -32,8 +32,10 @@ class Client(Peer):
             meta.name = self.name
             for msg in self.conn.S2C(meta):  # this line will wait for new messages from the server!
                 self.gui.textCons.display_msg(msg)
-        except:  # TODO catch certain exception, not all of them
+        except grpc.RpcError as rpc_error:  # TODO catch certain exception, not all of them
+            print(rpc_error)
             self.gui.on_disconnected()
+
 
 # GUI class for the client chat
 class GUIClient(ChatMain):
@@ -62,8 +64,6 @@ class GUIClient(ChatMain):
     def on_disconnected(self):
         if messagebox.askokcancel("Quit", f"Server disconnected. Press OK to exit (might take couple of sec)"):
             self.Window.destroy()
-
-    
 
 
 if __name__ == '__main__':

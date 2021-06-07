@@ -7,6 +7,7 @@ from src.server import Server
 from src.login import Login
 from src.connection_info_retriever import ConnectionInfoRetriever
 
+
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument(
@@ -14,9 +15,10 @@ def parse_args():
         '--verbose',
         dest='v',
         help='Output logs to console',
-        action = 'store_true'
+        action='store_true'
     )
     return parser.parse_args()
+
 
 if __name__ == '__main__':
     args = parse_args()
@@ -32,9 +34,9 @@ if __name__ == '__main__':
     if login.name == "" or login.role == "":
         exit()
 
-    if (login.role == 'S'):
+    if login.role == 'S':
         s = Server(login.name)
-    elif (login.role == 'C'):
+    elif login.role == 'C':
         cir = ConnectionInfoRetriever()
         if cir.premature_exit:
             exit()
