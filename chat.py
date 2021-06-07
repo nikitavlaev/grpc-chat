@@ -1,7 +1,5 @@
-from src.client import Client
-from src.server import Server
-from src.client_new import GUIClient
-from src.server_new import GUIServer
+from src.client import GUIClient
+from src.server import GUIServer
 from src.GUILogin import GUILogin
 
 if __name__ == '__main__':
