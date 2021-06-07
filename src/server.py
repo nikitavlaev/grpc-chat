@@ -1,24 +1,10 @@
-# Copyright 2015 gRPC authors.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-import threading
 from concurrent import futures
+import logging
 import socket
-from tkinter import DISABLED, NORMAL, END, messagebox
+from tkinter import DISABLED, END, messagebox
+import threading
 
 import grpc
-from google.protobuf.timestamp_pb2 import Timestamp
 
 import chat_pb2
 import chat_pb2_grpc
@@ -35,16 +21,14 @@ class CancelToken:
     def is_cancelled(self):
         return self.fexit > 0
 
-
-class GUIServer(GUI):
-    class Server:
+class Server:
         def __init__(self, name, ip, port):
             self.name = name
             self.ip = ip
             self.port = port
             self.chat = []
 
-    class Chat(chat_pb2_grpc.ChatServicer):
+class Chat(chat_pb2_grpc.ChatServicer):
         def __init__(self, chat, name, c_token, text_cons):
             self.chat = chat
             self.last_index = 0
@@ -64,13 +48,14 @@ class GUIServer(GUI):
                     self.last_index += 1
                     if msg.name != request.name:
                         yield msg
-            print("out of while")
+            logging.debug("Finished client session")
 
         def C2S(self, request, context):
             self.chat.append(request)
             GUI.display_msg(request, self.textCons)
             return chat_pb2.Status(code=0)
 
+class GUIServer(GUI):
     def __init__(self, name, ip='', port=50051):
         self.c_token = None
         self.server = None
@@ -81,17 +66,17 @@ class GUIServer(GUI):
         if ip == '':
             ip = socket.gethostbyname(hostname)
 
-        self.server_data = self.Server(self.name, ip, port)
-        print(self.server_data.name)
+        self.server_data = Server(self.name, ip, port)
+        logging.debug(f"Server name: {self.server_data.name}")
 
         self.c_token = CancelToken()
 
         self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-        chat_pb2_grpc.add_ChatServicer_to_server(self.Chat(self.server_data.chat, self.server_data.name
+        chat_pb2_grpc.add_ChatServicer_to_server(Chat(self.server_data.chat, self.server_data.name
                                                            , self.c_token, self.textCons), self.server)
 
-        print(f"Hostname: {hostname}")
-        print(f"IP Address: {self.server_data.ip}")
+        logging.info(f"Hostname: {hostname}")
+        logging.info(f"IP Address: {self.server_data.ip}")
         self.server.add_insecure_port(f'{self.server_data.ip}:{self.server_data.port}')
         self.server.start()
 
@@ -117,4 +102,4 @@ class GUIServer(GUI):
             self.server.stop(1)
             self.c_token.cancel()
             self.Window.destroy()
-            print("STOPPED")
+            logging.debug("Server finished successfully")
