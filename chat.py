@@ -2,9 +2,10 @@ from argparse import ArgumentParser
 import logging
 import sys
 
-from src.client import GUIClient
-from src.server import GUIServer
-from src.GUILogin import GUILogin
+from src.client import Client
+from src.server import Server
+from src.login import Login
+from src.connection_info_retriever import ConnectionInfoRetriever
 
 def parse_args():
     parser = ArgumentParser()
@@ -27,21 +28,17 @@ if __name__ == '__main__':
         handler.setLevel(logging.DEBUG)
         root.addHandler(handler)
 
-    login = GUILogin()
+    login = Login()
     if login.name == "" or login.role == "":
         exit()
 
     if (login.role == 'S'):
-        s = GUIServer(login.name)
+        s = Server(login.name)
     elif (login.role == 'C'):
-        #ip = input("Enter Server IP")
-        #port = input("Enter Server Port")
-
-        import socket
-        hostname = socket.gethostname()
-        ip = socket.gethostbyname(hostname)
-        port = 50051
-
-        c = GUIClient(login.name, ip, port)
+        cir = ConnectionInfoRetriever()
+        if cir.premature_exit:
+            exit()
+        else:
+            c = Client(login.name, cir.ip, cir.port)
     else:
         logging.critical(f"Incorrect role: {login.role}")

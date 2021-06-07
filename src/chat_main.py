@@ -1,24 +1,35 @@
 from tkinter import Tk, Label, Entry, Text, Button, Scrollbar, DISABLED, END, NORMAL, messagebox
+from dataclasses import dataclass
 
+@dataclass
+class ConnectionInfo:
+    def __init__(self, ip, port):
+        self.ip = ip
+        self.port = port
 
-class GUI:
+class Peer:
     def __init__(self, name, ip, port):
+            self.name = name
+            self.con_info = ConnectionInfo(ip, port)
+
+    def establish_connection(self):
+        pass
+
+class ChatMain:
+    def __init__(self, name, chat):
         # chat window which is currently hidden
         self.name = name
+        self.chat = chat
         self.Window = Tk()
         self.layout()
 
-        self.establish_connection(ip, port)
-
+    def run(self):
         self.Window.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.Window.mainloop()
 
     def on_closing(self):
         if messagebox.askokcancel("Quit", "Do you want to quit?"):
             self.Window.destroy()
-
-    def establish_connection(self, ip, port):
-        pass
 
     # The main layout of the chat
     def layout(self):
@@ -45,7 +56,7 @@ class GUI:
                         rely=0.07,
                         relheight=0.012)
 
-        self.textCons = Text(self.Window,
+        self.textCons = ChatConsole(self.Window,
                              width=20,
                              height=2,
                              bg="#17202A",
@@ -110,18 +121,14 @@ class GUI:
     def send_button(self, text):
         pass
 
-    # function to receive messages
-    def __receive(self):
-        pass
-
     def send_message(self, text):
         pass
 
-    @staticmethod
-    def display_msg(msg, text_cons):
-        text_cons.config(state=NORMAL)
+class ChatConsole(Text):
+    def display_msg(self, msg):
+        self.config(state=NORMAL)
         line = f"[{msg.name}] at [{msg.timestamp.ToDatetime()}]:\n {msg.content}"
-        text_cons.insert(END, line + "\n\n")
+        self.insert(END, line + "\n\n")
 
-        text_cons.config(state=DISABLED)
-        text_cons.see(END)
+        self.config(state=DISABLED)
+        self.see(END)

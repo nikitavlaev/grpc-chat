@@ -1,7 +1,7 @@
 from tkinter import Tk, Label, CENTER, Entry, Button, messagebox
 
 
-class GUILogin:
+class Login:
     def __init__(self):
         # chat window which is currently hidden
         self.name = ""

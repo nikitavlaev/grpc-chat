@@ -1,7 +1,7 @@
 from concurrent import futures
 import logging
 import socket
-from tkinter import DISABLED, END, messagebox
+from tkinter import DISABLED, END, messagebox, Button, Label
 import threading
 
 import grpc
@@ -9,7 +9,7 @@ import grpc
 import chat_pb2
 import chat_pb2_grpc
 
-from src.GUI import GUI
+from src.chat_main import ChatMain, Peer, ConnectionInfo
 
 
 class CancelToken:
@@ -21,12 +21,62 @@ class CancelToken:
     def is_cancelled(self):
         return self.fexit > 0
 
-class Server:
-        def __init__(self, name, ip, port):
-            self.name = name
-            self.ip = ip
-            self.port = port
+class StopEventService:
+    def __init__(self):
+        self.events = []
+
+    def add_event(self, event):
+        self.events.append(event)
+
+    def set_all(self):
+        for e in self.events:
+            e.set()
+
+class Server(Peer):
+        def __init__(self, name):
+            hostname = socket.gethostname()
+            ip = socket.gethostbyname(hostname)
+            port = 50051
+
+            super(Server, self).__init__(name, ip, port)
             self.chat = []
+            self.c_token = CancelToken()
+            self.gui = GUIServer(name, self.c_token, self.chat, self.con_info)
+            self.establish_connection()
+            self.gui.run()
+
+        def establish_connection(self):
+            def wait_and_stop_server(stop_event):
+                stop_event.wait()
+                self.grpc_server.stop(1)
+            
+            hostname = socket.gethostname()
+            if self.con_info.ip == '':
+                self.con_info.ip = socket.gethostbyname(hostname)
+
+            logging.debug(f"Server name: {self.name}")
+
+            stop_event = threading.Event()
+            self.grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+            chat_pb2_grpc.add_ChatServicer_to_server(
+                Chat(
+                    self.chat,
+                    self.name,
+                    self.c_token,
+                    self.gui.textCons,
+                ),
+                self.grpc_server,
+            )
+
+            logging.debug(f"Hostname: {hostname}")
+            logging.debug(f"IP Address: {self.con_info.ip}")
+            self.grpc_server.add_insecure_port(f'{self.con_info.ip}:{self.con_info.port}')
+            self.grpc_server.start()
+
+            self.gui.stop_event_service.add_event(stop_event)
+            server_stopper = threading.Thread(target=wait_and_stop_server, kwargs={'stop_event': stop_event})
+            server_stopper.start()
+
 
 class Chat(chat_pb2_grpc.ChatServicer):
         def __init__(self, chat, name, c_token, text_cons):
@@ -52,33 +102,37 @@ class Chat(chat_pb2_grpc.ChatServicer):
 
         def C2S(self, request, context):
             self.chat.append(request)
-            GUI.display_msg(request, self.textCons)
+            self.textCons.display_msg(request)
             return chat_pb2.Status(code=0)
 
-class GUIServer(GUI):
-    def __init__(self, name, ip='', port=50051):
-        self.c_token = None
-        self.server = None
-        super(GUIServer, self).__init__(name, ip, port)
+class GUIServer(ChatMain):
+    def __init__(self, name, c_token, chat, con_info):
+        self.c_token = c_token
+        self.con_info = con_info
+        self.stop_event_service = StopEventService()
+        super(GUIServer, self).__init__(name, chat)
+        self.add_connection_info_button()
+    
+    def add_connection_info_button(self):
+        # create a Display connection info button
+        self.buttonConnInfo = Button(self.Window,
+                                text="Display connection info",
+                                font="Helvetica 10 bold",
+                                width=20,
+                                bg="#ABB2B9",
+                                command=lambda: self.display_connection())
 
-    def establish_connection(self, ip, port):
-        hostname = socket.gethostname()
-        if ip == '':
-            ip = socket.gethostbyname(hostname)
+        self.buttonConnInfo.place(relx=0.0,
+                             rely=0.0,
+                             relheight=0.072,
+                             relwidth=0.4)
 
-        self.server_data = Server(self.name, ip, port)
-        logging.debug(f"Server name: {self.server_data.name}")
-
-        self.c_token = CancelToken()
-
-        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-        chat_pb2_grpc.add_ChatServicer_to_server(Chat(self.server_data.chat, self.server_data.name
-                                                           , self.c_token, self.textCons), self.server)
-
-        logging.info(f"Hostname: {hostname}")
-        logging.info(f"IP Address: {self.server_data.ip}")
-        self.server.add_insecure_port(f'{self.server_data.ip}:{self.server_data.port}')
-        self.server.start()
+    # function to display connection info window
+    def display_connection(self):
+        messagebox.showinfo(
+            "Connection info",
+            f"IP: {self.con_info.ip}, PORT: {self.con_info.port}",
+        )
 
     # function to basically start the thread for sending messages
     def send_button(self, text):
@@ -94,12 +148,13 @@ class GUIServer(GUI):
         msg.name = self.name
         msg.content = text
         msg.timestamp.GetCurrentTime()
-        GUI.display_msg(msg, self.textCons)
-        self.server_data.chat.append(msg)
+        self.textCons.display_msg(msg)
+        # по ссылке chat сделать полем GUI
+        self.chat.append(msg)
 
     def on_closing(self):
         if messagebox.askokcancel("Quit", "Do you want to quit?"):
-            self.server.stop(1)
             self.c_token.cancel()
+            self.stop_event_service.set_all()
             self.Window.destroy()
             logging.debug("Server finished successfully")
