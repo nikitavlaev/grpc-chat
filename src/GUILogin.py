@@ -1,4 +1,4 @@
-from tkinter import Tk, Toplevel, Label, CENTER, Entry, Text, Button, Scrollbar, DISABLED, END, NORMAL, messagebox
+from tkinter import Tk, Label, CENTER, Entry, Button, messagebox
 
 
 class GUILogin:

@@ -11,10 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""The Python implementation of the GRPC helloworld.Greeter client."""
 
+# import all the required  modules
 from __future__ import print_function
-import logging
+
+from tkinter import DISABLED, END, messagebox
 import threading
 
 import grpc
@@ -23,45 +24,63 @@ from google.protobuf.timestamp_pb2 import Timestamp
 import chat_pb2
 import chat_pb2_grpc
 
+from src.GUI import GUI
 
-class Client:
-    chat = []
+
+# GUI class for the client chat
+class GUIClient(GUI):
+    class Client:
+        def __init__(self, name, ip, port):
+            self.name = name
+            self.ip = ip
+            self.port = port
 
     def __init__(self, name, ip, port):
-        self.name = name
+        super(GUIClient, self).__init__(name, ip, port)
+
+    def establish_connection(self, ip, port):
+        self.client_data = self.Client(self.name, ip, port)
 
         # create a gRPC channel + stub
-        channel = grpc.insecure_channel(ip + ':' + str(port))
-        self.conn = chat_pb2_grpc.ChatStub(channel)
+        self.channel = grpc.insecure_channel(self.client_data.ip + ':' + str(self.client_data.port))
+        self.conn = chat_pb2_grpc.ChatStub(self.channel)
+
         # create new listening thread for when new message streams come in
-        threading.Thread(target=self.__listen_for_messages, daemon=True).start()
+        threading.Thread(target=self.__receive, daemon=True).start()
 
-        # main loop
-        while 1:
-            text = input()
-            if not Client.grpc_server_on(channel):
-                break
-            self.chat.append(text)
-            msg = chat_pb2.Msg()
-            msg.name = name
-            msg.content = text
-            msg.timestamp.GetCurrentTime()
-            self.conn.C2S(msg)
+    # function to basically start the thread for sending messages
+    def send_button(self, text):
+        self.textCons.config(state=DISABLED)
+        self.text = text
+        self.entryMsg.delete(0, END)
+        snd = threading.Thread(target=self.send_message, kwargs={'text': text})
+        snd.start()
 
-    def __listen_for_messages(self):
-        """
-        This method will be ran in a separate thread as the main/ui thread, because the for-in call is blocking
-        when waiting for new messages
-        """
+    # function to receive messages
+    def __receive(self):
         try:
             meta = chat_pb2.Meta()
             meta.name = self.name
             for msg in self.conn.S2C(meta):  # this line will wait for new messages from the server!
-                line = f"[{msg.name}] at [{msg.timestamp.ToDatetime()}]: {msg.content}"
-                print(line)  # debugging statement
-                self.chat.append(line + '\n')  # add the message to the UI
-        except: # TODO catch certain exception, not all of them
-            print(f"Server disconnected. Press ENTER to exit (might take couple of sec)")
+                GUI.display_msg(msg, self.textCons)
+        except:  # TODO catch certain exception, not all of them
+            self.on_disconnected()
+
+    # function to send messages
+    def send_message(self, text):
+        if not GUIClient.grpc_server_on(self.channel):
+            self.on_closing()
+        msg = chat_pb2.Msg()
+        msg.name = self.name
+        msg.content = text
+        msg.timestamp.GetCurrentTime()
+        GUI.display_msg(msg, self.textCons)
+        self.conn.C2S(msg)
+        # create a GUI class object
+
+    def on_disconnected(self):
+        if messagebox.askokcancel("Quit", f"Server disconnected. Press OK to exit (might take couple of sec)"):
+            self.Window.destroy()
 
     @staticmethod
     def grpc_server_on(channel) -> bool:
@@ -72,6 +91,6 @@ class Client:
         except grpc.FutureTimeoutError:
             return False
 
+
 if __name__ == '__main__':
-    logging.basicConfig()
-    c = Client()
+    g = GUIClient("Localhost", "", 50051)
